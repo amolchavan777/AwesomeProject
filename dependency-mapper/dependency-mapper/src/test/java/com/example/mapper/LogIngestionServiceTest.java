@@ -31,4 +31,18 @@ public class LogIngestionServiceTest {
         ingestionService.ingestLog(temp.toString(), "test", 0.8);
         assertEquals(2, resolver.toList().size());
     }
+
+    @Test
+    void testInvalidLinesIgnored() throws IOException {
+        Path temp = Files.createTempFile("log", ".txt");
+        try (FileWriter w = new FileWriter(temp.toFile())) {
+            w.write("ServiceX->ServiceY\n");
+            w.write("BadLine\n");
+            w.write("->NoFrom\n");
+            w.write("ServiceX->ServiceY\n");
+            w.write("ServiceZ->\n");
+        }
+        ingestionService.ingestLog(temp.toString(), "test", 0.9);
+        assertEquals(1, resolver.toList().size());
+    }
 }
