@@ -41,6 +41,13 @@ npm test
 
 Tests are based on Jest and React Native Testing Library.
 
+## Dependency Mapper Prototype
+
+The `dependency-mapper` directory contains a Spring Boot prototype implementing
+automated dependency mapping. The `DependencyResolver` now uses a simplified
+Bayesian approach to choose the most trustworthy dependency claims when multiple
+sources provide conflicting information.
+
 This repository contains a React Native project built with Expo.
 
 ## Release Logging
@@ -57,3 +64,9 @@ These scripts capture commit metadata such as hash, author, date, and message. E
 ### Fri Jul 4 09:51:11 2025 +0300
 - Merge pull request #2 from amolchavan777/codex/assess-progress-on-application-dependency-mapping-system (873129f27e6474a7fb0e33983311026b5d38dfda)
 
+
+### Fri Jul 4 13:49:40 2025 +0300
+- some basic stuff (a17b175c2a897a789447b700da0cd63e5d8ef52f)
+
+### Fri Jul 4 13:15:37 2025 +0000
+- Implement Bayesian conflict resolution (0cadcf89c3851787b7242d31719e2fed57139d1a)
