@@ -48,6 +48,35 @@ automated dependency mapping. The `DependencyResolver` now uses a simplified
 Bayesian approach to choose the most trustworthy dependency claims when multiple
 sources provide conflicting information.
 
+### Building and running the dependency mapper
+
+From the repository root run the following commands to start the Spring Boot
+service:
+
+```bash
+cd dependency-mapper/dependency-mapper
+mvn spring-boot:run
+```
+
+Use the normal Maven lifecycle for additional tasks such as running the tests
+(`mvn test`) or creating a jar (`mvn package`).
+
+### Configuration properties
+
+Configuration options for the prototype are defined in
+`dependency-mapper/dependency-mapper/src/main/resources/application.properties`.
+
+- `snapshot.dir` &ndash; directory where `GraphSnapshotService` writes exported
+  `.graphml` files. Defaults to `snapshots`.
+- `source.priorities.*` &ndash; weights used by `WeightedConflictResolver` when
+  multiple sources report the same dependency (for example
+  `source.priorities.manual=10` and `source.priorities.auto=1`). Higher values
+  give a source more influence in the conflict resolution process.
+- `overrides.<from>-><to>` &ndash; optional manual override that forces the
+  resolver to pick a claim from a specific source for a particular edge. For
+  instance, `overrides.ServiceA->ServiceC=manual` ensures the dependency
+  between `ServiceA` and `ServiceC` originates from the `manual` source.
+
 This repository contains a React Native project built with Expo.
 
 ## Release Logging
