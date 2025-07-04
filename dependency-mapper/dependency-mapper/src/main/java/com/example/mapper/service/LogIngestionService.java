@@ -13,19 +13,35 @@ import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Ingests dependency logs in the format {@code ServiceA->ServiceB}.
+ * <p>
+ * Example:
+ * <pre>{@code
+ * logIngestionService.ingestLog("/tmp/deps.log", "manual", 1.0);
+ * }</pre>
+ */
 @Service
 public class LogIngestionService {
     private static final Logger log = LoggerFactory.getLogger(LogIngestionService.class);
     private final ApplicationServiceRepository serviceRepo;
     private final DependencyClaimRepository claimRepo;
 
+    /**
+     * Create the service.
+     */
     public LogIngestionService(ApplicationServiceRepository serviceRepo, DependencyClaimRepository claimRepo) {
         this.serviceRepo = serviceRepo;
         this.claimRepo = claimRepo;
     }
 
+    /**
+     * Ingest a log file and persist claims.
+     */
     @Transactional
     public void ingestLog(String path, String source, double confidence) throws IOException {
+        long start = System.currentTimeMillis();
+        log.info("Ingesting log from {}", path);
         try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -65,5 +81,6 @@ public class LogIngestionService {
                 claimRepo.save(claim);
             }
         }
+        log.info("Finished log ingestion in {} ms", System.currentTimeMillis() - start);
     }
 }

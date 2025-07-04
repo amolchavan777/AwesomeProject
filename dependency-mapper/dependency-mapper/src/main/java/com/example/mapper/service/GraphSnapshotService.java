@@ -3,6 +3,8 @@ package com.example.mapper.service;
 import com.example.mapper.model.DependencyClaim;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -14,11 +16,24 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Exports the resolved dependency graph to GraphML files.
+ * <p>
+ * Usage example:
+ * <pre>{@code
+ * GraphSnapshotService svc = new GraphSnapshotService(resolver, "snapshots");
+ * Path file = svc.exportSnapshot();
+ * }</pre>
+ */
 @Service
 public class GraphSnapshotService {
+    private static final Logger log = LoggerFactory.getLogger(GraphSnapshotService.class);
     private final DependencyResolver resolver;
     private final Path snapshotDir;
 
+    /**
+     * Create the service specifying a snapshot directory.
+     */
     public GraphSnapshotService(DependencyResolver resolver,
                                 @Value("${snapshot.dir:snapshots}") String dir) throws IOException {
         this.resolver = resolver;
@@ -26,7 +41,14 @@ public class GraphSnapshotService {
         Files.createDirectories(snapshotDir);
     }
 
+    /**
+     * Export the current dependency graph to a GraphML file.
+     *
+     * @return path to the exported file
+     */
     public Path exportSnapshot() throws IOException {
+        long start = System.currentTimeMillis();
+        log.info("Exporting dependency snapshot");
         Map<String, Map<String, DependencyClaim>> graph = resolver.resolve();
         Set<String> nodes = graph.keySet();
         nodes.addAll(graph.values().stream()
@@ -53,6 +75,7 @@ public class GraphSnapshotService {
         }
 
         cleanupOldSnapshots();
+        log.info("Snapshot exported in {} ms", System.currentTimeMillis() - start);
         return file;
     }
 

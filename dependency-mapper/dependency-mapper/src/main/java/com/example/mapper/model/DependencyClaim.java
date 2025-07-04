@@ -8,6 +8,16 @@ import javax.persistence.ManyToOne;
 import java.time.Instant;
 import lombok.Data;
 
+/**
+ * Claim that one service depends on another.
+ *
+ * <pre>{@code
+ * DependencyClaim claim = new DependencyClaim();
+ * claim.setFromService(a);
+ * claim.setToService(b);
+ * claim.setSource("manual");
+ * }</pre>
+ */
 @Data
 @Entity
 public class DependencyClaim {

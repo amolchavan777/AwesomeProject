@@ -6,6 +6,14 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import lombok.Data;
 
+/**
+ * Represents an application/service participating in the dependency graph.
+ *
+ * <pre>{@code
+ * ApplicationService svc = new ApplicationService();
+ * svc.setName("ServiceA");
+ * }</pre>
+ */
 @Data
 @Entity
 public class ApplicationService {

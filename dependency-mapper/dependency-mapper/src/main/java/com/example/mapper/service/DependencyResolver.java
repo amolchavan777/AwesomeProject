@@ -2,22 +2,41 @@ package com.example.mapper.service;
 
 import com.example.mapper.model.DependencyClaim;
 import com.example.mapper.repo.DependencyClaimRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
+/**
+ * Resolves dependencies by choosing the most credible claim for each edge.
+ *
+ * <pre>{@code
+ * DependencyResolver resolver = new DependencyResolver(repository);
+ * Map<String, Map<String, DependencyClaim>> graph = resolver.resolve();
+ * }</pre>
+ */
 @Service
 public class DependencyResolver {
+    private static final Logger log = LoggerFactory.getLogger(DependencyResolver.class);
     private final DependencyClaimRepository claimRepo;
     private final Map<String, Double> sourceCredibility = new HashMap<>();
 
+    /**
+     * Create a resolver using the given repository.
+     */
     public DependencyResolver(DependencyClaimRepository claimRepo) {
         this.claimRepo = claimRepo;
     }
 
+    /**
+     * Resolve all dependency claims.
+     */
     public Map<String, Map<String, DependencyClaim>> resolve() {
+        long start = System.currentTimeMillis();
+        log.info("Resolving dependencies");
         List<DependencyClaim> claims = claimRepo.findAll();
         Map<String, Map<String, DependencyClaim>> result = new HashMap<>();
 
@@ -58,9 +77,14 @@ public class DependencyResolver {
             }
         }
 
+        // TODO: implement cycle detection on the resulting graph
+        log.info("Finished resolving dependencies in {} ms", System.currentTimeMillis() - start);
         return result;
     }
 
+    /**
+     * Convert the resolved graph into a list of edges.
+     */
     public List<String> toList() {
         return resolve().entrySet().stream()
             .flatMap(e -> e.getValue().values().stream())
