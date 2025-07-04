@@ -1,9 +1,9 @@
 package com.example.mapper.service;
 
-import com.example.mapper.model.ApplicationService;
-import com.example.mapper.model.DependencyClaim;
-import com.example.mapper.repo.ApplicationServiceRepository;
-import com.example.mapper.repo.DependencyClaimRepository;
+import com.enterprise.dependency.model.core.Application;
+import com.enterprise.dependency.model.core.Claim;
+import com.example.mapper.repo.ApplicationRepository;
+import com.example.mapper.repo.ClaimRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
@@ -16,11 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class LogIngestionService {
     private static final Logger log = LoggerFactory.getLogger(LogIngestionService.class);
-    private final ApplicationServiceRepository serviceRepo;
-    private final DependencyClaimRepository claimRepo;
+    private final ApplicationRepository appRepo;
+    private final ClaimRepository claimRepo;
 
-    public LogIngestionService(ApplicationServiceRepository serviceRepo, DependencyClaimRepository claimRepo) {
-        this.serviceRepo = serviceRepo;
+    public LogIngestionService(ApplicationRepository appRepo, ClaimRepository claimRepo) {
+        this.appRepo = appRepo;
         this.claimRepo = claimRepo;
     }
 
@@ -40,25 +40,25 @@ public class LogIngestionService {
                     log.warn("Skipping line with empty service name: {}", line);
                     continue;
                 }
-                ApplicationService fromSvc = serviceRepo.findByName(from);
-                if (fromSvc == null) {
-                    fromSvc = new ApplicationService();
-                    fromSvc.setName(from);
-                    fromSvc = serviceRepo.save(fromSvc);
+                Application fromApp = appRepo.findByName(from);
+                if (fromApp == null) {
+                    fromApp = new Application();
+                    fromApp.setName(from);
+                    fromApp = appRepo.save(fromApp);
                 }
-                ApplicationService toSvc = serviceRepo.findByName(to);
-                if (toSvc == null) {
-                    toSvc = new ApplicationService();
-                    toSvc.setName(to);
-                    toSvc = serviceRepo.save(toSvc);
+                Application toApp = appRepo.findByName(to);
+                if (toApp == null) {
+                    toApp = new Application();
+                    toApp.setName(to);
+                    toApp = appRepo.save(toApp);
                 }
-                if (claimRepo.existsByFromServiceAndToServiceAndSource(fromSvc, toSvc, source)) {
+                if (claimRepo.existsByFromApplicationAndToApplicationAndSource(fromApp, toApp, source)) {
                     log.warn("Skipping duplicate dependency: {}->{}", from, to);
                     continue;
                 }
-                DependencyClaim claim = new DependencyClaim();
-                claim.setFromService(fromSvc);
-                claim.setToService(toSvc);
+                Claim claim = new Claim();
+                claim.setFromApplication(fromApp);
+                claim.setToApplication(toApp);
                 claim.setSource(source);
                 claim.setConfidence(confidence);
                 claim.setTimestamp(Instant.now());

@@ -18,12 +18,10 @@
     "@expo/samples": "2.1.1",
     "expo": "^53.0.17",
     "metro": "^0.82.4",
-    "react": "18.2.0",
-    "react-native": "0.73.6",
-    "react-navigation": "^5.0.0",
-    "react-dom": "18.2.0",
-    "react-native-web": "^0.20.0",
-    "@expo/metro-runtime": "~5.0.4"
+    "node-fetch": "^2.7.0",
+    "react": "16.5.0",
+    "react-native": "https://github.com/expo/react-native/archive/sdk-31.0.0.tar.gz",
+    "react-navigation": "^5.0.0"
   },
   "devDependencies": {
     "babel-preset-expo": "^5.0.0",

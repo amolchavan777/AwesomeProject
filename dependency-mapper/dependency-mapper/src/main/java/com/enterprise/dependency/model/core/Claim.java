@@ -1,24 +1,29 @@
-package com.example.mapper.model;
+package com.enterprise.dependency.model.core;
 
+import java.time.Instant;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
-import java.time.Instant;
 import lombok.Data;
 
 @Data
 @Entity
-public class DependencyClaim {
+public class Claim {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     @ManyToOne
-    private ApplicationService fromService;
+    private Application fromApplication;
+
     @ManyToOne
-    private ApplicationService toService;
+    private Application toApplication;
+
     private String source;
+
     private double confidence;
+
     private Instant timestamp;
 }
