@@ -1,6 +1,5 @@
 package com.example.mapper.service;
 
-import com.example.mapper.model.ApplicationService;
 import com.example.mapper.model.DependencyClaim;
 import com.example.mapper.repo.DependencyClaimRepository;
 import java.util.HashMap;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DependencyResolver {
     private final DependencyClaimRepository claimRepo;
+    private final Map<String, Double> sourceCredibility = new HashMap<>();
 
     public DependencyResolver(DependencyClaimRepository claimRepo) {
         this.claimRepo = claimRepo;
@@ -20,15 +20,44 @@ public class DependencyResolver {
     public Map<String, Map<String, DependencyClaim>> resolve() {
         List<DependencyClaim> claims = claimRepo.findAll();
         Map<String, Map<String, DependencyClaim>> result = new HashMap<>();
-        for (DependencyClaim claim : claims) {
-            String from = claim.getFromService().getName();
-            String to = claim.getToService().getName();
+
+        Map<String, Map<String, List<DependencyClaim>>> grouped = claims.stream()
+                .collect(Collectors.groupingBy(
+                        c -> c.getFromService().getName(),
+                        Collectors.groupingBy(c -> c.getToService().getName())));
+
+        for (var fromEntry : grouped.entrySet()) {
+            String from = fromEntry.getKey();
             result.computeIfAbsent(from, k -> new HashMap<>());
-            DependencyClaim existing = result.get(from).get(to);
-            if (existing == null || claim.getConfidence() > existing.getConfidence()) {
-                result.get(from).put(to, claim);
+            for (var toEntry : fromEntry.getValue().entrySet()) {
+                String to = toEntry.getKey();
+                List<DependencyClaim> options = toEntry.getValue();
+                DependencyClaim best = null;
+                double bestScore = -1.0;
+
+                for (DependencyClaim claim : options) {
+                    double cred = sourceCredibility.getOrDefault(claim.getSource(), 0.8);
+                    double score = cred * claim.getConfidence();
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = claim;
+                    }
+                }
+
+                for (DependencyClaim claim : options) {
+                    double cred = sourceCredibility.getOrDefault(claim.getSource(), 0.8);
+                    if (claim == best) {
+                        cred = Math.min(1.0, cred + 0.05);
+                    } else {
+                        cred = Math.max(0.0, cred - 0.05);
+                    }
+                    sourceCredibility.put(claim.getSource(), cred);
+                }
+
+                result.get(from).put(to, best);
             }
         }
+
         return result;
     }
 
