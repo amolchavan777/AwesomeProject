@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,7 +29,7 @@ public class GraphSnapshotService {
 
     public Path exportSnapshot() throws IOException {
         Map<String, Map<String, DependencyClaim>> graph = resolver.resolve();
-        Set<String> nodes = graph.keySet();
+        Set<String> nodes = new HashSet<>(graph.keySet());
         nodes.addAll(graph.values().stream()
                 .flatMap(m -> m.keySet().stream())
                 .collect(Collectors.toSet()));
