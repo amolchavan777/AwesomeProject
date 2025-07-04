@@ -1,7 +1,7 @@
 package com.example.mapper.service;
 
-import com.example.mapper.model.DependencyClaim;
-import com.example.mapper.repo.DependencyClaimRepository;
+import com.enterprise.dependency.model.core.Claim;
+import com.example.mapper.repo.ClaimRepository;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,32 +10,32 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class DependencyResolver {
-    private final DependencyClaimRepository claimRepo;
+    private final ClaimRepository claimRepo;
     private final Map<String, Double> sourceCredibility = new HashMap<>();
 
-    public DependencyResolver(DependencyClaimRepository claimRepo) {
+    public DependencyResolver(ClaimRepository claimRepo) {
         this.claimRepo = claimRepo;
     }
 
-    public Map<String, Map<String, DependencyClaim>> resolve() {
-        List<DependencyClaim> claims = claimRepo.findAll();
-        Map<String, Map<String, DependencyClaim>> result = new HashMap<>();
+    public Map<String, Map<String, Claim>> resolve() {
+        List<Claim> claims = claimRepo.findAll();
+        Map<String, Map<String, Claim>> result = new HashMap<>();
 
-        Map<String, Map<String, List<DependencyClaim>>> grouped = claims.stream()
+        Map<String, Map<String, List<Claim>>> grouped = claims.stream()
                 .collect(Collectors.groupingBy(
-                        c -> c.getFromService().getName(),
-                        Collectors.groupingBy(c -> c.getToService().getName())));
+                        c -> c.getFromApplication().getName(),
+                        Collectors.groupingBy(c -> c.getToApplication().getName())));
 
         for (var fromEntry : grouped.entrySet()) {
             String from = fromEntry.getKey();
             result.computeIfAbsent(from, k -> new HashMap<>());
             for (var toEntry : fromEntry.getValue().entrySet()) {
                 String to = toEntry.getKey();
-                List<DependencyClaim> options = toEntry.getValue();
-                DependencyClaim best = null;
+                List<Claim> options = toEntry.getValue();
+                Claim best = null;
                 double bestScore = -1.0;
 
-                for (DependencyClaim claim : options) {
+                for (Claim claim : options) {
                     double cred = sourceCredibility.getOrDefault(claim.getSource(), 0.8);
                     double score = cred * claim.getConfidence();
                     if (score > bestScore) {
@@ -44,7 +44,7 @@ public class DependencyResolver {
                     }
                 }
 
-                for (DependencyClaim claim : options) {
+                for (Claim claim : options) {
                     double cred = sourceCredibility.getOrDefault(claim.getSource(), 0.8);
                     if (claim == best) {
                         cred = Math.min(1.0, cred + 0.05);
@@ -64,7 +64,7 @@ public class DependencyResolver {
     public List<String> toList() {
         return resolve().entrySet().stream()
             .flatMap(e -> e.getValue().values().stream())
-            .map(c -> c.getFromService().getName() + "->" + c.getToService().getName())
+            .map(c -> c.getFromApplication().getName() + "->" + c.getToApplication().getName())
             .collect(Collectors.toList());
     }
 }

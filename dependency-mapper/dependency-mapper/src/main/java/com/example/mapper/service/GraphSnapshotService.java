@@ -1,6 +1,6 @@
 package com.example.mapper.service;
 
-import com.example.mapper.model.DependencyClaim;
+import com.enterprise.dependency.model.core.Claim;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -28,8 +28,9 @@ public class GraphSnapshotService {
     }
 
     public Path exportSnapshot() throws IOException {
-        Map<String, Map<String, DependencyClaim>> graph = resolver.resolve();
-        Set<String> nodes = new HashSet<>(graph.keySet());
+
+        Map<String, Map<String, Claim>> graph = resolver.resolve();
+        Set<String> nodes = graph.keySet();
         nodes.addAll(graph.values().stream()
                 .flatMap(m -> m.keySet().stream())
                 .collect(Collectors.toSet()));
