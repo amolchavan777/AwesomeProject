@@ -29,7 +29,8 @@ public class WeightedConflictResolver {
         double recency = 0.0;
         Instant ts = claim.getTimestamp();
         if (ts != null) {
-            recency = ts.toEpochMilli() / 1_000_000_000.0;
+            long secondsOld = java.time.Duration.between(ts, Instant.now()).getSeconds();
+            recency = 1.0 / (1.0 + secondsOld);
         }
         return claim.getConfidence() * priority + frequency + recency;
     }
