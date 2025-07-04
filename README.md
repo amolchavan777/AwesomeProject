@@ -31,6 +31,18 @@ This will launch Expo in development mode. You can then:
 - Press **`i`** to open the iOS simulator (macOS only)
 - Scan the QR code with the Expo Go app on your device
 
+### Running in the browser
+
+Expo supports running the project in a web browser via React Native Web. Launch
+the development server with:
+
+```bash
+npm run web
+```
+
+This executes `expo start --web` under the hood, opening the app in your
+default browser.
+
 ## Running tests
 
 To execute the test suite, run:
