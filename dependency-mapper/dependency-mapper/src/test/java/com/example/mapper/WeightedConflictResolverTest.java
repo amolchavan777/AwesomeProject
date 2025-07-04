@@ -78,4 +78,33 @@ public class WeightedConflictResolverTest {
         assertEquals(newClaim.getId(), resolved.get("ServiceA").get("ServiceC").getId(), "manual override should win");
         assertEquals(freqClaim1.getId(), resolved.get("ServiceA").get("ServiceB").getId(), "frequency should keep auto claim");
     }
+
+    @Test
+    void testRecencyBias() {
+        ApplicationService x = new ApplicationService();
+        x.setName("ServiceX");
+        x = serviceRepo.save(x);
+        ApplicationService y = new ApplicationService();
+        y.setName("ServiceY");
+        y = serviceRepo.save(y);
+
+        DependencyClaim oldC = new DependencyClaim();
+        oldC.setFromService(x);
+        oldC.setToService(y);
+        oldC.setSource("auto");
+        oldC.setConfidence(0.5);
+        oldC.setTimestamp(Instant.now().minusSeconds(7200));
+        claimRepo.save(oldC);
+
+        DependencyClaim newC = new DependencyClaim();
+        newC.setFromService(x);
+        newC.setToService(y);
+        newC.setSource("auto");
+        newC.setConfidence(0.5);
+        newC.setTimestamp(Instant.now());
+        claimRepo.save(newC);
+
+        var resolved = resolver.resolve();
+        assertEquals(newC.getId(), resolved.get("ServiceX").get("ServiceY").getId(), "newer claim should win");
+    }
 }
