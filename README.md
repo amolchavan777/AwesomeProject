@@ -60,6 +60,8 @@ automated dependency mapping. The `DependencyResolver` now uses a simplified
 Bayesian approach to choose the most trustworthy dependency claims when multiple
 sources provide conflicting information.
 
+Data ingestion is handled entirely within the Spring Boot project using small Java adapters for logs, APIs and other sources.
+
 ### Building and running the dependency mapper
 
 From the repository root run the following commands to start the Spring Boot
@@ -87,7 +89,8 @@ Configuration options for the prototype are defined in
 - `overrides.<from>-><to>` &ndash; optional manual override that forces the
   resolver to pick a claim from a specific source for a particular edge. For
   instance, `overrides.ServiceA->ServiceC=manual` ensures the dependency
-  between `ServiceA` and `ServiceC` originates from the `manual` source.
+   between `ServiceA` and `ServiceC` originates from the `manual` source.
+- `ingestion.adapters` &ndash; comma separated list of built-in adapters to initialize when the application starts.
 
 This repository contains a React Native project built with Expo.
 
