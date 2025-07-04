@@ -5,6 +5,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import java.time.Instant;
 import lombok.Data;
 
 @Data
@@ -19,4 +20,5 @@ public class DependencyClaim {
     private ApplicationService toService;
     private String source;
     private double confidence;
+    private Instant timestamp;
 }

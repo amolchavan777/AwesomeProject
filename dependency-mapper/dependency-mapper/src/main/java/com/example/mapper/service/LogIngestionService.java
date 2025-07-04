@@ -7,6 +7,7 @@ import com.example.mapper.repo.DependencyClaimRepository;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +49,7 @@ public class LogIngestionService {
                 claim.setToService(toSvc);
                 claim.setSource(source);
                 claim.setConfidence(confidence);
+                claim.setTimestamp(Instant.now());
                 claimRepo.save(claim);
             }
         }
