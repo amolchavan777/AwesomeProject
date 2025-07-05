@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestPropertySource(properties = {
         "source.priorities.manual=5",
         "source.priorities.auto=1",
-        "overrides.ServiceA->ServiceC=manual"
+        "overrides.ServiceA->ServiceC=manual",
+        "recency.weight=1",
+        "frequency.weight=1"
 })
 public class WeightedConflictResolverTest {
 
@@ -81,24 +83,24 @@ public class WeightedConflictResolverTest {
 
     @Test
     void testRecencyBias() {
-        ApplicationService x = new ApplicationService();
+        Application x = new Application();
         x.setName("ServiceX");
-        x = serviceRepo.save(x);
-        ApplicationService y = new ApplicationService();
+        x = appRepo.save(x);
+        Application y = new Application();
         y.setName("ServiceY");
-        y = serviceRepo.save(y);
+        y = appRepo.save(y);
 
-        DependencyClaim oldC = new DependencyClaim();
-        oldC.setFromService(x);
-        oldC.setToService(y);
+        Claim oldC = new Claim();
+        oldC.setFromApplication(x);
+        oldC.setToApplication(y);
         oldC.setSource("auto");
         oldC.setConfidence(0.5);
         oldC.setTimestamp(Instant.now().minusSeconds(7200));
         claimRepo.save(oldC);
 
-        DependencyClaim newC = new DependencyClaim();
-        newC.setFromService(x);
-        newC.setToService(y);
+        Claim newC = new Claim();
+        newC.setFromApplication(x);
+        newC.setToApplication(y);
         newC.setSource("auto");
         newC.setConfidence(0.5);
         newC.setTimestamp(Instant.now());
