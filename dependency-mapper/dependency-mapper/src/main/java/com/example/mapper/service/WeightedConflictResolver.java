@@ -15,13 +15,19 @@ public class WeightedConflictResolver {
     private final ClaimRepository claimRepo;
     private final Map<String, Double> priorities;
     private final Map<String, String> overrides;
+    private final double recencyWeight;
+    private final double frequencyWeight;
 
     public WeightedConflictResolver(ClaimRepository claimRepo,
                                     @Value("#{${source.priorities:{}}}") Map<String, Double> priorities,
-                                    @Value("#{${overrides:{}}}") Map<String, String> overrides) {
+                                    @Value("#{${overrides:{}}}") Map<String, String> overrides,
+                                    @Value("${recency.weight:1.0}") double recencyWeight,
+                                    @Value("${frequency.weight:1.0}") double frequencyWeight) {
         this.claimRepo = claimRepo;
         this.priorities = priorities;
         this.overrides = overrides;
+        this.recencyWeight = recencyWeight;
+        this.frequencyWeight = frequencyWeight;
     }
 
     private double score(Claim claim, int frequency) {
@@ -32,7 +38,9 @@ public class WeightedConflictResolver {
             long secondsOld = java.time.Duration.between(ts, Instant.now()).getSeconds();
             recency = 1.0 / (1.0 + secondsOld);
         }
-        return claim.getConfidence() * priority + frequency + recency;
+        return claim.getConfidence() * priority
+                + frequencyWeight * frequency
+                + recencyWeight * recency;
     }
 
     public Map<String, Map<String, Claim>> resolve() {
