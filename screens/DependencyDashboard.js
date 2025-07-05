@@ -1,67 +1,66 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 
-export default class DependencyDashboard extends React.Component {
-  static navigationOptions = {
-    title: 'Dependencies',
-  };
+const DependencyDashboard = () => {
+  const [dependencies, setDependencies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  state = {
-    dependencies: [],
-    loading: true,
-    error: null,
-  };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/dependencies');
+        if (!res.ok) throw new Error('Request failed');
+        const deps = await res.json();
+        setDependencies(deps);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  componentDidMount() {
-    this._load();
-  }
+    load();
+  }, []);
 
-  _load = async () => {
-    try {
-      const res = await fetch('http://localhost:8080/api/dependencies');
-      if (!res.ok) throw new Error('Request failed');
-      const deps = await res.json();
-      this.setState({ dependencies: deps, loading: false });
-    } catch (err) {
-      this.setState({ error: err.message, loading: false });
-    }
-  };
-
-  _renderItem = ({ item }) => (
+  const renderItem = ({ item }) => (
     <View style={styles.item}>
       <Text>{item}</Text>
     </View>
   );
 
-  render() {
-    const { dependencies, loading, error } = this.state;
-    if (loading) {
-      return (
-        <View style={styles.center}>
-          <ActivityIndicator />
-        </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.center}>
-          <Text>Error: {error}</Text>
-        </View>
-      );
-    }
-
+  if (loading) {
     return (
-      <FlatList
-        data={dependencies}
-        keyExtractor={(item, idx) => String(idx)}
-        renderItem={this._renderItem}
-        contentContainerStyle={dependencies.length ? null : styles.center}
-        ListEmptyComponent={<Text>No dependencies</Text>}
-      />
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
     );
   }
-}
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text>Error: {error}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={dependencies}
+      keyExtractor={(item, idx) => String(idx)}
+      renderItem={renderItem}
+      contentContainerStyle={dependencies.length ? null : styles.center}
+      ListEmptyComponent={<Text>No dependencies</Text>}
+    />
+  );
+};
+
+DependencyDashboard.navigationOptions = {
+  title: 'Dependencies',
+};
+
+export default DependencyDashboard;
 
 const styles = StyleSheet.create({
   center: {
