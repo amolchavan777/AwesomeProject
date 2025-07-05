@@ -6,7 +6,6 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 import java.time.Instant;
-import lombok.Data;
 
 /**
  * Claim that one service depends on another.
@@ -18,7 +17,6 @@ import lombok.Data;
  * claim.setSource("manual");
  * }</pre>
  */
-@Data
 @Entity
 public class DependencyClaim {
     @Id
@@ -31,4 +29,58 @@ public class DependencyClaim {
     private String source;
     private double confidence;
     private Instant timestamp;
+
+    // Constructors
+    public DependencyClaim() {
+        // Default constructor for JPA
+    }
+
+    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public ApplicationService getFromService() {
+        return fromService;
+    }
+
+    public void setFromService(ApplicationService fromService) {
+        this.fromService = fromService;
+    }
+
+    public ApplicationService getToService() {
+        return toService;
+    }
+
+    public void setToService(ApplicationService toService) {
+        this.toService = toService;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public double getConfidence() {
+        return confidence;
+    }
+
+    public void setConfidence(double confidence) {
+        this.confidence = confidence;
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Instant timestamp) {
+        this.timestamp = timestamp;
+    }
 }

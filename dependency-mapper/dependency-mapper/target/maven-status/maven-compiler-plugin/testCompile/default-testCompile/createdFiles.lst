@@ -1,0 +1,7 @@
+com/example/mapper/LogIngestionServiceTest.class
+com/enterprise/dependency/adapter/RouterLogAdapterTest.class
+com/enterprise/dependency/service/ClaimNormalizerTest.class
+com/example/mapper/GraphSnapshotServiceTest.class
+com/example/mapper/WeightedConflictResolverTest.class
+com/enterprise/dependency/adapter/ConfigurationFileAdapterTest.class
+com/enterprise/dependency/adapter/NetworkDiscoveryAdapterTest.class

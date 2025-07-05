@@ -7,21 +7,26 @@ import HomeScreen from '../screens/HomeScreen';
 import LinksScreen from '../screens/LinksScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import DependencyDashboard from '../screens/DependencyDashboard';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 const HomeStack = createStackNavigator({
   Home: HomeScreen,
 });
+
+function getHomeIconName(focused) {
+  if (Platform.OS === 'ios') {
+    return focused ? 'ios-information-circle' : 'ios-information-circle-outline';
+  } else {
+    return 'md-information-circle';
+  }
+}
 
 HomeStack.navigationOptions = {
   tabBarLabel: 'Home',
   tabBarIcon: ({ focused }) => (
     <TabBarIcon
       focused={focused}
-      name={
-        Platform.OS === 'ios'
-          ? `ios-information-circle${focused ? '' : '-outline'}`
-          : 'md-information-circle'
-      }
+      name={getHomeIconName(focused)}
     />
   ),
 };
@@ -54,6 +59,20 @@ DependencyStack.navigationOptions = {
   ),
 };
 
+const AnalyticsStack = createStackNavigator({
+  Analytics: AnalyticsScreen,
+});
+
+AnalyticsStack.navigationOptions = {
+  tabBarLabel: 'Analytics',
+  tabBarIcon: ({ focused }) => (
+    <TabBarIcon
+      focused={focused}
+      name={Platform.OS === 'ios' ? 'ios-stats' : 'md-stats'}
+    />
+  ),
+};
+
 const SettingsStack = createStackNavigator({
   Settings: SettingsScreen,
 });
@@ -72,5 +91,6 @@ export default createBottomTabNavigator({
   HomeStack,
   LinksStack,
   DependencyStack,
+  AnalyticsStack,
   SettingsStack,
 });
