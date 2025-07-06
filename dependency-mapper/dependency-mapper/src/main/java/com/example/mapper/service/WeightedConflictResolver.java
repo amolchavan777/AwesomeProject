@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 /**
@@ -28,6 +29,8 @@ public class WeightedConflictResolver {
     private final DependencyClaimRepository claimRepo;
     private final Map<String, Double> priorities;
     private final Map<String, String> overrides;
+    private final SourceReliabilityService reliabilityService;
+    private final Environment environment;
 
     /**
      * Create a resolver.
@@ -38,10 +41,37 @@ public class WeightedConflictResolver {
      */
     public WeightedConflictResolver(DependencyClaimRepository claimRepo,
                                     @Value("#{${source.priorities:{}}}") Map<String, Double> priorities,
-                                    @Value("#{${overrides:{}}}") Map<String, String> overrides) {
+                                    @Value("#{${overrides:{}}}") Map<String, String> overrides,
+                                    SourceReliabilityService reliabilityService,
+                                    Environment environment) {
         this.claimRepo = claimRepo;
-        this.priorities = priorities;
-        this.overrides = overrides;
+        this.priorities = (priorities != null) ? priorities : new HashMap<>();
+        this.overrides = (overrides != null) ? overrides : new HashMap<>();
+        this.reliabilityService = reliabilityService;
+        this.environment = environment;
+        
+        // Manually populate overrides from individual properties
+        if (this.overrides.isEmpty()) {
+            String overrideValue = environment.getProperty("overrides.ServiceA->ServiceC");
+            if (overrideValue != null) {
+                this.overrides.put("ServiceA->ServiceC", overrideValue);
+            }
+        }
+        
+        // Manually populate priorities from individual properties  
+        if (this.priorities.isEmpty()) {
+            String manualPriority = environment.getProperty("source.priorities.manual");
+            String autoPriority = environment.getProperty("source.priorities.auto");
+            if (manualPriority != null) {
+                this.priorities.put("manual", Double.valueOf(manualPriority));
+            }
+            if (autoPriority != null) {
+                this.priorities.put("auto", Double.valueOf(autoPriority));
+            }
+        }
+        
+        log.debug("WeightedConflictResolver initialized with priorities: {} and overrides: {}", 
+            this.priorities, this.overrides);
     }
 
     /**
@@ -49,12 +79,13 @@ public class WeightedConflictResolver {
      */
     private double score(DependencyClaim claim, int frequency) {
         double priority = priorities.getOrDefault(claim.getSource(), 1.0);
+        double reliability = reliabilityService.getReliability(claim.getSource());
         double recency = 0.0;
         Instant ts = claim.getTimestamp();
         if (ts != null) {
             recency = ts.toEpochMilli() / 1_000_000_000.0;
         }
-        return claim.getConfidence() * priority + frequency + recency;
+        return claim.getConfidence() * priority * reliability + frequency + recency;
     }
 
     /**
@@ -84,6 +115,18 @@ public class WeightedConflictResolver {
             for (var toEntry : fromEntry.getValue().entrySet()) {
                 String to = toEntry.getKey();
                 List<DependencyClaim> options = toEntry.getValue();
+                String override = overrides.get(from + "->" + to);
+                boolean overrideApplied = false;
+                if (override != null) {
+                    for (DependencyClaim c : options) {
+                        if (c.getSource() != null && c.getSource().trim().equalsIgnoreCase(override.trim())) {
+                            result.get(from).put(to, c);
+                            overrideApplied = true;
+                            break;
+                        }
+                    }
+                }
+                if (overrideApplied) continue;
                 int freq = options.size();
                 DependencyClaim best = options.get(0);
                 double bestScore = score(best, freq);
@@ -94,17 +137,6 @@ public class WeightedConflictResolver {
                         best = c;
                     }
                 }
-
-                String override = overrides.get(from + "->" + to);
-                if (override != null) {
-                    for (DependencyClaim c : options) {
-                        if (c.getSource().equals(override)) {
-                            best = c;
-                            break;
-                        }
-                    }
-                }
-
                 result.get(from).put(to, best);
             }
         }

@@ -2,6 +2,8 @@ package com.enterprise.dependency.service;
 
 import com.example.mapper.model.DependencyClaim;
 import com.example.mapper.repo.DependencyClaimRepository;
+import com.example.mapper.model.SourceReliability;
+import com.example.mapper.service.SourceReliabilityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,10 +41,12 @@ public class ConflictDetectionService {
     private static final long TEMPORAL_WINDOW_HOURS = 24; // Consider claims within 24 hours as concurrent
     
     private final DependencyClaimRepository dependencyClaimRepository;
+    private final SourceReliabilityService reliabilityService;
     
     @Autowired
-    public ConflictDetectionService(DependencyClaimRepository dependencyClaimRepository) {
+    public ConflictDetectionService(DependencyClaimRepository dependencyClaimRepository, SourceReliabilityService reliabilityService) {
         this.dependencyClaimRepository = dependencyClaimRepository;
+        this.reliabilityService = reliabilityService;
     }
     
     /**
@@ -52,32 +56,27 @@ public class ConflictDetectionService {
      */
     public List<ConflictReport> detectAllConflicts() {
         log.info("Starting comprehensive conflict detection");
-        
         List<DependencyClaim> allClaims = dependencyClaimRepository.findAll();
         List<ConflictReport> conflicts = new ArrayList<>();
-        
-        // Group claims by dependency pair (from -> to)
         Map<DependencyPair, List<DependencyClaim>> claimsByDependency = allClaims.stream()
-            .collect(Collectors.groupingBy(claim -> 
-                new DependencyPair(
-                    claim.getFromService().getName(),
-                    claim.getToService().getName()
-                )
-            ));
-        
+            .collect(Collectors.groupingBy(c -> new DependencyPair(
+                c.getFromService().getName(), c.getToService().getName())));
         for (Map.Entry<DependencyPair, List<DependencyClaim>> entry : claimsByDependency.entrySet()) {
-            DependencyPair dependency = entry.getKey();
+            DependencyPair pair = entry.getKey();
             List<DependencyClaim> claims = entry.getValue();
-            
-            if (claims.size() > 1) {
-                List<ConflictReport> dependencyConflicts = analyzeClaimsForConflicts(dependency, claims);
-                conflicts.addAll(dependencyConflicts);
+            Set<String> sources = new HashSet<>();
+            double minReliability = 1.0, maxReliability = 0.0;
+            for (DependencyClaim claim : claims) {
+                double rel = reliabilityService.getReliability(claim.getSource());
+                minReliability = Math.min(minReliability, rel);
+                maxReliability = Math.max(maxReliability, rel);
+                sources.add(claim.getSource());
+            }
+            if (sources.size() > 1 && (maxReliability - minReliability) > 0.3) {
+                ConflictReport report = new ConflictReport(pair, claims, String.format("min=%.2f, max=%.2f", minReliability, maxReliability));
+                conflicts.add(report);
             }
         }
-        
-        log.info("Conflict detection completed. Found {} conflicts across {} dependencies", 
-            conflicts.size(), claimsByDependency.size());
-        
         return conflicts;
     }
     
@@ -118,22 +117,12 @@ public class ConflictDetectionService {
      */
     private List<ConflictReport> detectConfidenceConflicts(DependencyPair dependency, List<DependencyClaim> claims) {
         List<ConflictReport> conflicts = new ArrayList<>();
-        
         double maxConfidence = claims.stream().mapToDouble(DependencyClaim::getConfidence).max().orElse(0.0);
         double minConfidence = claims.stream().mapToDouble(DependencyClaim::getConfidence).min().orElse(0.0);
-        
         if (maxConfidence - minConfidence > CONFIDENCE_THRESHOLD) {
-            ConflictReport conflict = new ConflictReport(
-                ConflictType.CONFIDENCE_CONFLICT,
-                dependency,
-                "Significant confidence difference: " + String.format("%.2f", maxConfidence) + 
-                " vs " + String.format("%.2f", minConfidence),
-                claims,
-                calculateConflictSeverity(maxConfidence - minConfidence)
-            );
-            conflicts.add(conflict);
+            String reliabilityStats = String.format("confidenceDiff=%.2f", maxConfidence - minConfidence);
+            conflicts.add(new ConflictReport(dependency, claims, reliabilityStats));
         }
-        
         return conflicts;
     }
     
@@ -142,31 +131,18 @@ public class ConflictDetectionService {
      */
     private List<ConflictReport> detectTemporalConflicts(DependencyPair dependency, List<DependencyClaim> claims) {
         List<ConflictReport> conflicts = new ArrayList<>();
-        
-        // Sort claims by timestamp
         List<DependencyClaim> sortedClaims = claims.stream()
             .sorted(Comparator.comparing(DependencyClaim::getTimestamp))
             .collect(Collectors.toList());
-        
-        // Look for gaps in temporal coverage
         for (int i = 0; i < sortedClaims.size() - 1; i++) {
             DependencyClaim current = sortedClaims.get(i);
             DependencyClaim next = sortedClaims.get(i + 1);
-            
             long hoursBetween = ChronoUnit.HOURS.between(current.getTimestamp(), next.getTimestamp());
-            
-            if (hoursBetween > TEMPORAL_WINDOW_HOURS * 7) { // 7-day gap threshold
-                ConflictReport conflict = new ConflictReport(
-                    ConflictType.TEMPORAL_CONFLICT,
-                    dependency,
-                    "Large temporal gap: " + hoursBetween + " hours between claims",
-                    Arrays.asList(current, next),
-                    calculateTemporalSeverity(hoursBetween)
-                );
-                conflicts.add(conflict);
+            if (hoursBetween > TEMPORAL_WINDOW_HOURS * 7) {
+                String reliabilityStats = String.format("temporalGap=%d", hoursBetween);
+                conflicts.add(new ConflictReport(dependency, Arrays.asList(current, next), reliabilityStats));
             }
         }
-        
         return conflicts;
     }
     
@@ -175,13 +151,9 @@ public class ConflictDetectionService {
      */
     private List<ConflictReport> detectSourceConflicts(DependencyPair dependency, List<DependencyClaim> claims) {
         List<ConflictReport> conflicts = new ArrayList<>();
-        
-        // Group by source
         Map<String, List<DependencyClaim>> claimsBySource = claims.stream()
             .collect(Collectors.groupingBy(DependencyClaim::getSource));
-        
         if (claimsBySource.size() > 1) {
-            // Check if sources have significantly different average confidence
             Map<String, Double> avgConfidenceBySource = claimsBySource.entrySet().stream()
                 .collect(Collectors.toMap(
                     Map.Entry::getKey,
@@ -190,24 +162,15 @@ public class ConflictDetectionService {
                         .average()
                         .orElse(0.0)
                 ));
-            
             double maxAvgConfidence = avgConfidenceBySource.values().stream()
                 .mapToDouble(Double::doubleValue).max().orElse(0.0);
             double minAvgConfidence = avgConfidenceBySource.values().stream()
                 .mapToDouble(Double::doubleValue).min().orElse(0.0);
-            
             if (maxAvgConfidence - minAvgConfidence > CONFIDENCE_THRESHOLD) {
-                ConflictReport conflict = new ConflictReport(
-                    ConflictType.SOURCE_CONFLICT,
-                    dependency,
-                    "Sources disagree on confidence: " + avgConfidenceBySource,
-                    claims,
-                    calculateConflictSeverity(maxAvgConfidence - minAvgConfidence)
-                );
-                conflicts.add(conflict);
+                String reliabilityStats = "sourceAvgConf=" + avgConfidenceBySource;
+                conflicts.add(new ConflictReport(dependency, claims, reliabilityStats));
             }
         }
-        
         return conflicts;
     }
     
@@ -227,36 +190,29 @@ public class ConflictDetectionService {
      * Represents a detected conflict between dependency claims.
      */
     public static class ConflictReport {
-        private final ConflictType type;
-        private final DependencyPair dependency;
-        private final String description;
-        private final List<DependencyClaim> conflictingClaims;
-        private final ConflictSeverity severity;
-        private final Instant detectedAt;
-        
-        public ConflictReport(ConflictType type, DependencyPair dependency, String description,
-                            List<DependencyClaim> conflictingClaims, ConflictSeverity severity) {
-            this.type = type;
-            this.dependency = dependency;
-            this.description = description;
-            this.conflictingClaims = new ArrayList<>(conflictingClaims);
-            this.severity = severity;
-            this.detectedAt = Instant.now();
+        public DependencyPair pair;
+        public List<DependencyClaim> claims;
+        public String reliabilityStats;
+        public ConflictReport() {}
+        public ConflictReport(DependencyPair pair, List<DependencyClaim> claims, String reliabilityStats) {
+            this.pair = pair;
+            this.claims = claims;
+            this.reliabilityStats = reliabilityStats;
         }
-        
-        // Getters
-        public ConflictType getType() { return type; }
-        public DependencyPair getDependency() { return dependency; }
-        public String getDescription() { return description; }
-        public List<DependencyClaim> getConflictingClaims() { return new ArrayList<>(conflictingClaims); }
-        public ConflictSeverity getSeverity() { return severity; }
-        public Instant getDetectedAt() { return detectedAt; }
-        
         @Override
         public String toString() {
-            return String.format("ConflictReport{type=%s, dependency=%s, severity=%s, claims=%d, desc='%s'}", 
-                type, dependency, severity, conflictingClaims.size(), description);
+            return String.format("ConflictReport{pair=%s, claims=%d, reliability=%s}", 
+                pair, claims.size(), reliabilityStats);
         }
+        
+        // --- Add accessors for dashboard/REST compatibility ---
+        public DependencyPair getDependency() { return pair; }
+        public List<DependencyClaim> getConflictingClaims() { return claims; }
+        public String getReliabilityStats() { return reliabilityStats; }
+        public ConflictType getType() { return ConflictType.SOURCE_CONFLICT; } // Placeholder, improve logic
+        public ConflictSeverity getSeverity() { return ConflictSeverity.MEDIUM; } // Placeholder, improve logic
+        public String getDescription() { return "Conflict between claims for " + pair; }
+        public Instant getDetectedAt() { return Instant.now(); } // Placeholder, improve logic
     }
     
     /**

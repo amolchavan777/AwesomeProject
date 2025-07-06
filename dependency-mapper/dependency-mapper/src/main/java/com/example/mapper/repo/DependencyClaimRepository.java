@@ -25,4 +25,10 @@ public interface DependencyClaimRepository extends JpaRepository<DependencyClaim
     @Query("SELECT dc FROM DependencyClaim dc WHERE dc.fromService.name = :fromName AND dc.toService.name = :toName")
     List<DependencyClaim> findByFromServiceNameAndToServiceName(@Param("fromName") String fromServiceName, 
                                                                @Param("toName") String toServiceName);
+
+    /**
+     * Get all service dependencies for analytics (returns from and to service names)
+     */
+    @Query("SELECT dc.fromService.name, dc.toService.name FROM DependencyClaim dc")
+    List<Object[]> findAllServiceDependencies();
 }

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency Matrix</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: normal;
+        }
+        .description {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .endpoints {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .endpoint {
+            display: block;
+            color: #007AFF;
+            text-decoration: none;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            margin: 8px 0;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e1e5e9;
+            transition: background-color 0.2s;
+        }
+        .endpoint:hover {
+            background-color: #f0f8ff;
+        }
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e5e9;
+        }
+        .status-item {
+            text-align: center;
+        }
+        .status-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .status-value.online {
+            color: #28a745;
+        }
+        .status-value.offline {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Application Dependency Matrix</h1>
+        <h2>Advanced Analytics & Multi-Source Ingestion System</h2>
+        
+        <div class="description">
+            <p>A comprehensive microservice dependency analysis platform with real-time monitoring, 
+            cascade failure detection, and intelligent service mesh analytics.</p>
+        </div>
+
+        <div class="endpoints">
+            <h3>Analytics Endpoints</h3>
+            <a href="http://localhost:8082/api/analytics/service-mesh" class="endpoint" target="_blank">
+                /api/analytics/service-mesh
+            </a>
+            <a href="http://localhost:8082/api/analytics/traffic-analysis" class="endpoint" target="_blank">
+                /api/analytics/traffic-analysis
+            </a>
+            <a href="http://localhost:8082/api/analytics/cascade-failure" class="endpoint" target="_blank">
+                /api/analytics/cascade-failure
+            </a>
+            <a href="http://localhost:8082/api/analytics/service-discovery" class="endpoint" target="_blank">
+                /api/analytics/service-discovery
+            </a>
+
+            <h3>Data Ingestion Endpoints</h3>
+            <a href="http://localhost:8082/api/ingest/observability" class="endpoint" target="_blank">
+                /api/ingest/observability
+            </a>
+            <a href="http://localhost:8082/api/ingest/kubernetes" class="endpoint" target="_blank">
+                /api/ingest/kubernetes
+            </a>
+            <a href="http://localhost:8082/api/ingest/custom-text" class="endpoint" target="_blank">
+                /api/ingest/custom-text
+            </a>
+        </div>
+
+        <div class="status">
+            <div class="status-item">
+                <div class="status-label">Frontend</div>
+                <div class="status-value online" id="frontend-status">ONLINE</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Backend API</div>
+                <div class="status-value" id="backend-status">CHECKING...</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Database</div>
+                <div class="status-value online" id="db-status">H2 READY</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check backend status
+        fetch('http://localhost:8082/api/analytics/service-mesh')
+            .then(response => {
+                const statusEl = document.getElementById('backend-status');
+                if (response.ok) {
+                    statusEl.textContent = 'ONLINE';
+                    statusEl.className = 'status-value online';
+                } else {
+                    statusEl.textContent = 'ERROR';
+                    statusEl.className = 'status-value offline';
+                }
+            })
+            .catch(() => {
+                const statusEl = document.getElementById('backend-status');
+                statusEl.textContent = 'OFFLINE';
+                statusEl.className = 'status-value offline';
+            });
+    </script>
+</body>
+</html>

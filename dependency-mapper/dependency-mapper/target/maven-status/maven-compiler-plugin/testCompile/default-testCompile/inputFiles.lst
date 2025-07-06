@@ -2,6 +2,7 @@
 /Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/example/mapper/GraphSnapshotServiceTest.java
 /Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/enterprise/dependency/adapter/RouterLogAdapterTest.java
 /Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/example/mapper/LogIngestionServiceTest.java
+/Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/example/mapper/DataSourceAdapterTest.java
 /Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/enterprise/dependency/adapter/ConfigurationFileAdapterTest.java
 /Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/enterprise/dependency/service/ClaimNormalizerTest.java
 /Users/theamol/Downloads/AwesomeProject/dependency-mapper/dependency-mapper/src/test/java/com/example/mapper/WeightedConflictResolverTest.java

@@ -166,6 +166,84 @@ public class IngestionController {
     }
     
     /**
+     * Ingests observability data from monitoring tools (Prometheus, Jaeger, OpenTelemetry).
+     * Supports metrics, traces, and spans data.
+     * 
+     * @param data observability data in supported formats
+     * @param sourceId optional identifier for the data source
+     * @return ingestion result with statistics
+     */
+    @PostMapping("/observability")
+    public ResponseEntity<Map<String, Object>> ingestObservabilityData(@RequestBody String data,
+            @RequestParam(value = "sourceId", required = false) String sourceId) {
+        
+        if (data == null || data.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                .body(createErrorResponse("Observability data is empty", null));
+        }
+        
+        try {
+            if (sourceId == null || sourceId.trim().isEmpty()) {
+                sourceId = "observability-" + System.currentTimeMillis();
+            }
+            
+            log.info("Processing observability data from source: {}", sourceId);
+            IngestionResult result = ingestionService.ingestObservabilityData(data, sourceId);
+            
+            return ResponseEntity.ok(createSuccessResponse(result));
+            
+        } catch (IngestionException e) {
+            log.error("Observability data ingestion failed for source: {}", sourceId, e);
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(createErrorResponse("Observability ingestion failed", e.getMessage()));
+                
+        } catch (Exception e) {
+            log.error("Unexpected error processing observability data from source: {}", sourceId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(createErrorResponse("Unexpected error", e.getMessage()));
+        }
+    }
+    
+    /**
+     * Ingests Kubernetes manifests (YAML) to discover service dependencies.
+     * Supports Deployments, Services, Ingress, ConfigMaps and other Kubernetes resources.
+     * 
+     * @param data Kubernetes YAML manifests
+     * @param sourceId optional identifier for the data source
+     * @return ingestion result with statistics
+     */
+    @PostMapping("/kubernetes")
+    public ResponseEntity<Map<String, Object>> ingestKubernetesManifests(@RequestBody String data,
+            @RequestParam(value = "sourceId", required = false) String sourceId) {
+        
+        if (data == null || data.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                .body(createErrorResponse("Kubernetes manifest data is empty", null));
+        }
+        
+        try {
+            if (sourceId == null || sourceId.trim().isEmpty()) {
+                sourceId = "kubernetes-" + System.currentTimeMillis();
+            }
+            
+            log.info("Processing Kubernetes manifests from source: {}", sourceId);
+            IngestionResult result = ingestionService.ingestKubernetesManifests(data, sourceId);
+            
+            return ResponseEntity.ok(createSuccessResponse(result));
+            
+        } catch (IngestionException e) {
+            log.error("Kubernetes manifest ingestion failed for source: {}", sourceId, e);
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(createErrorResponse("Kubernetes ingestion failed", e.getMessage()));
+                
+        } catch (Exception e) {
+            log.error("Unexpected error processing Kubernetes manifests from source: {}", sourceId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(createErrorResponse("Unexpected error", e.getMessage()));
+        }
+    }
+    
+    /**
      * Gets ingestion statistics and system status.
      */
     @GetMapping("/status")

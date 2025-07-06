@@ -68,7 +68,13 @@ public class GraphSnapshotService {
                 String from = fromEntry.getKey();
                 for (var toEntry : fromEntry.getValue().entrySet()) {
                     String to = toEntry.getKey();
-                    writer.write("    <edge source=\"" + from + "\" target=\"" + to + "\"/>\n");
+                    DependencyClaim claim = toEntry.getValue();
+                    writer.write("    <edge source=\"" + from + "\" target=\"" + to + "\">\n");
+                    writer.write("      <data key=\"confidence\">" + claim.getConfidence() + "</data>\n");
+                    writer.write("      <data key=\"source\">" + claim.getSource() + "</data>\n");
+                    writer.write("      <data key=\"provenance\">" + (claim.getProvenance() != null ? claim.getProvenance() : "") + "</data>\n");
+                    writer.write("      <data key=\"auditTrail\">" + (claim.getAuditTrail() != null ? claim.getAuditTrail() : "") + "</data>\n");
+                    writer.write("    </edge>\n");
                 }
             }
             writer.write("  </graph>\n</graphml>\n");

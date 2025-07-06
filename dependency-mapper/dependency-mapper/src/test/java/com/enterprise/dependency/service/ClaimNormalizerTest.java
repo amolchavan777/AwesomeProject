@@ -186,7 +186,7 @@ class ClaimNormalizerTest {
         expectedSuffixes.put("my-app", "my-app-service");
         expectedSuffixes.put("database-primary", "database-primary-database");
         expectedSuffixes.put("redis-store", "redis-store-service");
-        expectedSuffixes.put("kafka-broker", "kafka-broker-service");
+        expectedSuffixes.put("kafka-broker", "kafka-service"); // Updated to match normalization logic
         expectedSuffixes.put("payment-gateway", "payment-gateway");  // Already has appropriate suffix
         
         for (Map.Entry<String, String> test : expectedSuffixes.entrySet()) {

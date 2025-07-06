@@ -5,6 +5,8 @@ import com.enterprise.dependency.adapter.RouterLogAdapter;
 import com.enterprise.dependency.adapter.NetworkDiscoveryAdapter;
 import com.enterprise.dependency.adapter.ConfigurationFileAdapter;
 import com.enterprise.dependency.adapter.CustomTextAdapter;
+import com.enterprise.dependency.adapter.ObservabilityAdapter;
+import com.enterprise.dependency.adapter.KubernetesAdapter;
 import com.enterprise.dependency.model.core.Claim;
 import com.example.mapper.model.DependencyClaim;
 import com.example.mapper.model.ApplicationService;
@@ -57,6 +59,8 @@ public class IngestionService {
     private final NetworkDiscoveryAdapter networkDiscoveryAdapter;
     private final ConfigurationFileAdapter configurationFileAdapter;
     private final CustomTextAdapter customTextAdapter;
+    private final ObservabilityAdapter observabilityAdapter;
+    private final KubernetesAdapter kubernetesAdapter;
     private final ClaimNormalizer claimNormalizer;
     private final DependencyClaimRepository dependencyClaimRepository;
     private final ApplicationServiceRepository applicationServiceRepository;
@@ -70,6 +74,8 @@ public class IngestionService {
             NetworkDiscoveryAdapter networkDiscoveryAdapter,
             ConfigurationFileAdapter configurationFileAdapter,
             CustomTextAdapter customTextAdapter,
+            ObservabilityAdapter observabilityAdapter,
+            KubernetesAdapter kubernetesAdapter,
             ClaimNormalizer claimNormalizer,
             DependencyClaimRepository dependencyClaimRepository,
             ApplicationServiceRepository applicationServiceRepository) {
@@ -77,6 +83,8 @@ public class IngestionService {
         this.networkDiscoveryAdapter = networkDiscoveryAdapter;
         this.configurationFileAdapter = configurationFileAdapter;
         this.customTextAdapter = customTextAdapter;
+        this.observabilityAdapter = observabilityAdapter;
+        this.kubernetesAdapter = kubernetesAdapter;
         this.claimNormalizer = claimNormalizer;
         this.dependencyClaimRepository = dependencyClaimRepository;
         this.applicationServiceRepository = applicationServiceRepository;
@@ -186,6 +194,19 @@ public class IngestionService {
             return SourceType.CONFIGURATION_FILE;
         }
         
+        // Check for observability data patterns
+        if (content.contains("http_requests_total{") || content.contains("span_id:") || 
+            content.contains("trace_id:") || content.contains("service=") ||
+            content.contains("-> ") && content.contains("ms")) {
+            return SourceType.OBSERVABILITY_DATA;
+        }
+        
+        // Check for Kubernetes manifests
+        if (content.contains("apiVersion:") && content.contains("kind:") && 
+            (content.contains("metadata:") || content.contains("spec:"))) {
+            return SourceType.KUBERNETES_MANIFESTS;
+        }
+        
         // Default to router log for unknown formats
         log.warn("Could not detect source type for file: {}, defaulting to ROUTER_LOG", filePath);
         return SourceType.ROUTER_LOG;
@@ -205,6 +226,10 @@ public class IngestionService {
                     return parseConfigurationFromString(data);
                 case CUSTOM_TEXT:
                     return customTextAdapter.parseCustomText(data);
+                case OBSERVABILITY_DATA:
+                    return observabilityAdapter.parseObservabilityData(data);
+                case KUBERNETES_MANIFESTS:
+                    return kubernetesAdapter.parseKubernetesManifests(data);
                 default:
                     throw new AdapterException("Unknown", "Unsupported source type: " + sourceType);
             }
@@ -326,12 +351,40 @@ public class IngestionService {
     }
     
     /**
+     * Ingests observability data from monitoring tools like Prometheus, Jaeger, and OpenTelemetry.
+     * 
+     * @param data observability data (metrics, traces, spans)
+     * @param sourceId identifier for this data source (e.g., "prometheus-cluster-1")
+     * @return ingestion result with statistics
+     * @throws IngestionException if ingestion fails
+     */
+    public IngestionResult ingestObservabilityData(String data, String sourceId) throws IngestionException {
+        log.info("Starting observability data ingestion from source: {}", sourceId);
+        return ingestFromString(data, SourceType.OBSERVABILITY_DATA, sourceId);
+    }
+
+    /**
+     * Ingests Kubernetes manifests (YAML) to discover service dependencies from container orchestration metadata.
+     * 
+     * @param data Kubernetes YAML manifests (can contain multiple documents separated by ---)
+     * @param sourceId identifier for this data source (e.g., "production-k8s-cluster")
+     * @return ingestion result with statistics
+     * @throws IngestionException if ingestion fails
+     */
+    public IngestionResult ingestKubernetesManifests(String data, String sourceId) throws IngestionException {
+        log.info("Starting Kubernetes manifest ingestion from source: {}", sourceId);
+        return ingestFromString(data, SourceType.KUBERNETES_MANIFESTS, sourceId);
+    }
+
+    /**
      * Enum for supported source types.
      */
     public enum SourceType {
         ROUTER_LOG,
         NETWORK_DISCOVERY,
         CONFIGURATION_FILE,
-        CUSTOM_TEXT
+        CUSTOM_TEXT,
+        OBSERVABILITY_DATA,
+        KUBERNETES_MANIFESTS
     }
 }

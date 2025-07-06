@@ -1,5 +1,6 @@
 package com.example.mapper.model;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -29,6 +30,12 @@ public class DependencyClaim {
     private String source;
     private double confidence;
     private Instant timestamp;
+
+    // Added fields for provenance and audit trail
+    @Column(length = 2048)
+    private String provenance; // JSON or string with provenance info
+    @Column(length = 2048)
+    private String auditTrail; // JSON or string with audit trail
 
     // Constructors
     public DependencyClaim() {
@@ -82,5 +89,21 @@ public class DependencyClaim {
 
     public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getProvenance() {
+        return provenance;
+    }
+
+    public void setProvenance(String provenance) {
+        this.provenance = provenance;
+    }
+
+    public String getAuditTrail() {
+        return auditTrail;
+    }
+
+    public void setAuditTrail(String auditTrail) {
+        this.auditTrail = auditTrail;
     }
 }

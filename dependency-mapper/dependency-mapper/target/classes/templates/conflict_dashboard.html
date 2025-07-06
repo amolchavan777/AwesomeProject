@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Conflict Report Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 0.95em; }
+        th { background: #f5f5f5; }
+        .desc, .claims { max-width: 300px; word-break: break-all; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+<h2>Conflict Report (Reliability-based)</h2>
+<canvas id="conflictChart" width="800" height="400"></canvas>
+<script>
+fetch('/api/conflicts/all')
+  .then(response => response.json())
+  .then(data => {
+    const conflicts = data.conflicts || [];
+    const labels = conflicts.map(r => r.dependency.from + '→' + r.dependency.to);
+    const minRel = conflicts.map(r => {
+      const match = /min=([0-9.]+)/.exec(r.reliabilityStats); return match ? parseFloat(match[1]) : 0;
+    });
+    const maxRel = conflicts.map(r => {
+      const match = /max=([0-9.]+)/.exec(r.reliabilityStats); return match ? parseFloat(match[1]) : 0;
+    });
+    const ctx = document.getElementById('conflictChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Min Reliability', data: minRel, backgroundColor: '#f44336' },
+          { label: 'Max Reliability', data: maxRel, backgroundColor: '#4caf50' }
+        ]
+      },
+      options: { scales: { y: { min: 0, max: 1 } } }
+    });
+  });
+</script>
+
+<h2>Conflict Details</h2>
+<table id="conflictTable">
+  <thead>
+    <tr>
+      <th>From</th><th>To</th><th>Type</th><th>Severity</th><th>Description</th><th>Detected At</th><th>Claims</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<script>
+fetch('/api/conflicts/all')
+  .then(r => r.json())
+  .then(data => {
+    const conflicts = data.conflicts || [];
+    const tbody = document.querySelector('#conflictTable tbody');
+    conflicts.forEach(c => {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${c.dependency.from}</td><td>${c.dependency.to}</td><td>${c.type}</td><td>${c.severity}</td><td class='desc'>${c.description}</td><td>${c.detectedAt}</td><td class='claims'>${(c.conflictingClaims||[]).map(claim => claim.source + ' (' + claim.confidence + ')').join('<br>')}</td>`;
+      tbody.appendChild(row);
+    });
+  });
+</script>
+</body>
+</html>
