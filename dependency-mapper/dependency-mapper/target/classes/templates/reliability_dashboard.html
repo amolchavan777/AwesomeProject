@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Source Reliability & Provenance Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 0.95em; }
+        th { background: #f5f5f5; }
+        .audit, .provenance { max-width: 300px; word-break: break-all; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+<h2>Source Reliability Heatmap</h2>
+<canvas id="reliabilityChart" width="600" height="300"></canvas>
+<script>
+fetch('/api/dependencies/source-reliability')
+  .then(response => response.json())
+  .then(data => {
+    const ctx = document.getElementById('reliabilityChart').getContext('2d');
+    const labels = data.map(r => r.sourceName);
+    const values = data.map(r => r.reliability);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Reliability',
+          data: values,
+          backgroundColor: values.map(v => v > 0.9 ? '#4caf50' : v > 0.7 ? '#ffeb3b' : '#f44336')
+        }]
+      },
+      options: { scales: { y: { min: 0, max: 1 } } }
+    });
+  });
+</script>
+
+<h2>Resolved Dependency Claims (with Provenance & Audit Trail)</h2>
+<table id="claimsTable">
+  <thead>
+    <tr>
+      <th>From</th><th>To</th><th>Confidence</th><th>Source</th><th>Timestamp</th><th>Provenance</th><th>Audit Trail</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<script>
+fetch('/api/dependencies/claims/resolved')
+  .then(r => r.json())
+  .then(claims => {
+    const tbody = document.querySelector('#claimsTable tbody');
+    claims.forEach(c => {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${c.fromService?.name||''}</td><td>${c.toService?.name||''}</td><td>${c.confidence}</td><td>${c.source}</td><td>${c.timestamp||''}</td><td class='provenance'>${c.provenance||''}</td><td class='audit'>${c.auditTrail||''}</td>`;
+      tbody.appendChild(row);
+    });
+  });
+</script>
+
+<h2>Claim Evolution Timeline</h2>
+<canvas id="claimTimeline" width="900" height="300"></canvas>
+<script>
+fetch('/api/dependencies/claims/all')
+  .then(r => r.json())
+  .then(claims => {
+    // Group by (from,to) and sort by timestamp
+    const groups = {};
+    claims.forEach(c => {
+      const key = (c.fromService?.name||'') + '→' + (c.toService?.name||'');
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    Object.values(groups).forEach(arr => arr.sort((a,b) => (a.timestamp||'').localeCompare(b.timestamp||'')));
+    // Prepare data for Chart.js
+    const keys = Object.keys(groups);
+    const datasets = keys.map((key, i) => ({
+      label: key,
+      data: groups[key].map(c => ({x: c.timestamp, y: c.confidence})),
+      borderColor: `hsl(${i*40%360},70%,50%)`,
+      fill: false,
+      tension: 0.1
+    }));
+    new Chart(document.getElementById('claimTimeline').getContext('2d'), {
+      type: 'line',
+      data: { datasets },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { type: 'time', time: { unit: 'day' }, title: { display: true, text: 'Timestamp' } },
+          y: { min: 0, max: 1, title: { display: true, text: 'Confidence' } }
+        },
+        responsive: true,
+        interaction: { mode: 'nearest', axis: 'x', intersect: false }
+      }
+    });
+  });
+</script>
+
+<h2>Interactive Dependency Graph</h2>
+<div id="forceGraph" style="width:100%;height:500px;"></div>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+fetch('/api/dependencies/claims/resolved')
+  .then(r => r.json())
+  .then(claims => {
+    // Build nodes and links
+    const nodes = {};
+    const links = [];
+    claims.forEach(c => {
+      const from = c.fromService?.name||'';
+      const to = c.toService?.name||'';
+      if (!nodes[from]) nodes[from] = {id: from};
+      if (!nodes[to]) nodes[to] = {id: to};
+      links.push({source: from, target: to, confidence: c.confidence, sourceType: c.source});
+    });
+    const nodeArr = Object.values(nodes);
+    // D3 force-directed graph
+    const width = document.getElementById('forceGraph').clientWidth;
+    const height = 500;
+    const svg = d3.select('#forceGraph').append('svg')
+      .attr('width', width).attr('height', height);
+    const simulation = d3.forceSimulation(nodeArr)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width/2, height/2));
+    const link = svg.append('g').selectAll('line')
+      .data(links).enter().append('line')
+      .attr('stroke-width', d => 2 + 3*d.confidence)
+      .attr('stroke', d => d3.interpolateBlues(d.confidence));
+    const node = svg.append('g').selectAll('circle')
+      .data(nodeArr).enter().append('circle')
+      .attr('r', 18)
+      .attr('fill', '#4caf50')
+      .call(d3.drag()
+        .on('start', dragstarted)
+        .on('drag', dragged)
+        .on('end', dragended));
+    const label = svg.append('g').selectAll('text')
+      .data(nodeArr).enter().append('text')
+      .text(d => d.id)
+      .attr('font-size', 13)
+      .attr('dx', 22).attr('dy', 4);
+    simulation.on('tick', () => {
+      link.attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+      node.attr('cx', d => d.x).attr('cy', d => d.y);
+      label.attr('x', d => d.x).attr('y', d => d.y);
+    });
+    function dragstarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x; d.fy = d.y;
+    }
+    function dragged(event, d) {
+      d.fx = event.x; d.fy = event.y;
+    }
+    function dragended(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null; d.fy = null;
+    }
+  });
+</script>
+</body>
+</html>

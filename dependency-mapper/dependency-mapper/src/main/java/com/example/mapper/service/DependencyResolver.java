@@ -1,66 +1,74 @@
 package com.example.mapper.service;
 
-import com.enterprise.dependency.model.core.Claim;
-import com.example.mapper.repo.ClaimRepository;
+import com.example.mapper.model.DependencyClaim;
+import com.example.mapper.repo.DependencyClaimRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
+/**
+ * Resolves dependencies by choosing the most credible claim for each edge.
+ *
+ * <pre>{@code
+ * DependencyResolver resolver = new DependencyResolver(repository);
+ * Map<String, Map<String, DependencyClaim>> graph = resolver.resolve();
+ * }</pre>
+ */
 @Service
 public class DependencyResolver {
-    private final ClaimRepository claimRepo;
+    private static final Logger log = LoggerFactory.getLogger(DependencyResolver.class);
+    private final DependencyClaimRepository claimRepo;
+    private final WeightedConflictResolver weightedResolver;
+    private final MajorityVoteConflictResolver majorityResolver;
+    private final LcaConflictResolver lcaResolver;
     private final Map<String, Double> sourceCredibility = new HashMap<>();
+    private String algorithm = "weighted";
 
-    public DependencyResolver(ClaimRepository claimRepo) {
+    /**
+     * Create a resolver using the given repository.
+     */
+    public DependencyResolver(DependencyClaimRepository claimRepo, WeightedConflictResolver weightedResolver, MajorityVoteConflictResolver majorityResolver, LcaConflictResolver lcaResolver) {
         this.claimRepo = claimRepo;
+        this.weightedResolver = weightedResolver;
+        this.majorityResolver = majorityResolver;
+        this.lcaResolver = lcaResolver;
     }
 
-    public Map<String, Map<String, Claim>> resolve() {
-        List<Claim> claims = claimRepo.findAll();
-        Map<String, Map<String, Claim>> result = new HashMap<>();
+    /**
+     * Set the conflict resolution algorithm ("weighted" or others in future).
+     */
+    public void setAlgorithm(String algorithm) {
+        this.algorithm = algorithm;
+    }
 
-        Map<String, Map<String, List<Claim>>> grouped = claims.stream()
-                .collect(Collectors.groupingBy(
-                        c -> c.getFromApplication().getName(),
-                        Collectors.groupingBy(c -> c.getToApplication().getName())));
+    /**
+     * Get the current conflict resolution algorithm.
+     */
+    public String getAlgorithm() {
+        return algorithm;
+    }
 
-        for (var fromEntry : grouped.entrySet()) {
-            String from = fromEntry.getKey();
-            result.computeIfAbsent(from, k -> new HashMap<>());
-            for (var toEntry : fromEntry.getValue().entrySet()) {
-                String to = toEntry.getKey();
-                List<Claim> options = toEntry.getValue();
-                Claim best = null;
-                double bestScore = -1.0;
-
-                for (Claim claim : options) {
-                    double cred = sourceCredibility.getOrDefault(claim.getSource(), 0.8);
-                    double score = cred * claim.getConfidence();
-                    if (score > bestScore) {
-                        bestScore = score;
-                        best = claim;
-                    }
-                }
-
-                for (Claim claim : options) {
-                    double cred = sourceCredibility.getOrDefault(claim.getSource(), 0.8);
-                    if (claim == best) {
-                        cred = Math.min(1.0, cred + 0.05);
-                    } else {
-                        cred = Math.max(0.0, cred - 0.05);
-                    }
-                    sourceCredibility.put(claim.getSource(), cred);
-                }
-
-                result.get(from).put(to, best);
-            }
+    /**
+     * Resolve all dependency claims using the selected algorithm.
+     */
+    public Map<String, Map<String, DependencyClaim>> resolve() {
+        if ("weighted".equalsIgnoreCase(algorithm)) {
+            return weightedResolver.resolve();
+        } else if ("majority".equalsIgnoreCase(algorithm)) {
+            return majorityResolver.resolve();
+        } else if ("lca".equalsIgnoreCase(algorithm)) {
+            return lcaResolver.resolve();
         }
-
-        return result;
+        return weightedResolver.resolve(); // fallback
     }
 
+    /**
+     * Convert the resolved graph into a list of edges.
+     */
     public List<String> toList() {
         return resolve().entrySet().stream()
             .flatMap(e -> e.getValue().values().stream())

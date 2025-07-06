@@ -1,41 +1,166 @@
 package com.enterprise.dependency.adapter;
 
-import java.io.StringReader;
-import java.util.List;
+import com.enterprise.dependency.model.core.Claim;
+import com.enterprise.dependency.model.core.ConfidenceScore;
+import com.enterprise.dependency.model.core.DependencyType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class RouterLogAdapterTest {
-
-    @Test
-    void parseValidLine() {
-        String line = "10.0.0.1 - - [01/Jan/2024:12:00:00 +0000] \"GET /index.html HTTP/1.1\" 200 123 192.168.1.10:80";
-        RouterLogAdapter adapter = new RouterLogAdapter();
-        Claim claim = adapter.parseLine(line);
-        assertNotNull(claim);
-        assertEquals("10.0.0.1", claim.getSourceIp());
-        assertEquals("192.168.1.10", claim.getTargetIp());
-        assertEquals(1.0, claim.getConfidence(), 0.001);
+/**
+ * Test cases for RouterLogAdapter functionality.
+ * 
+ * @author GitHub Copilot
+ * @since 1.0.0
+ */
+class RouterLogAdapterTest {
+    
+    private RouterLogAdapter adapter;
+    
+    @TempDir
+    Path tempDir;
+    
+    @BeforeEach
+    void setUp() {
+        adapter = new RouterLogAdapter();
     }
-
+    
     @Test
-    void parseInvalidIp() {
-        String line = "badip - - [01/Jan/2024:12:00:00 +0000] \"GET /index.html HTTP/1.1\" 200 123 192.168.1.10:80";
-        RouterLogAdapter adapter = new RouterLogAdapter();
-        assertNull(adapter.parseLine(line));
+    void testParseSimpleLogFormat() throws IOException {
+        // Given
+        Path logFile = tempDir.resolve("simple.log");
+        try (FileWriter writer = new FileWriter(logFile.toFile())) {
+            writer.write("ServiceA->ServiceB\n");
+            writer.write("web-portal->user-service\n");
+            writer.write("user-service->database\n");
+        }
+        
+        // When
+        List<Claim> claims = adapter.parseLogFile(logFile.toString());
+        
+        // Then
+        assertEquals(3, claims.size());
+        
+        Claim firstClaim = claims.get(0);
+        assertEquals("ServiceA", firstClaim.getFromApplication());
+        assertEquals("ServiceB", firstClaim.getToApplication());
+        assertEquals(DependencyType.RUNTIME, firstClaim.getDependencyType());
+        assertEquals(ConfidenceScore.HIGH, firstClaim.getConfidence());
+        assertEquals("router-log-simple", firstClaim.getSource());
     }
-
+    
     @Test
-    void parseMultipleLines() throws Exception {
-        String logs = String.join("\n",
-            "10.0.0.1 - - [01/Jan/2024:12:00:00 +0000] \"GET / HTTP/1.1\" 200 123 192.168.1.10:80",
-            "10.0.0.2 - - [01/Jan/2024:12:00:01 +0000] \"GET /foo HTTP/1.1\" 500 99 192.168.1.11:80"
-        );
-        RouterLogAdapter adapter = new RouterLogAdapter();
-        List<Claim> claims = adapter.parse(new StringReader(logs));
+    void testParseStructuredLogFormat() throws IOException {
+        // Given
+        Path logFile = tempDir.resolve("structured.log");
+        try (FileWriter writer = new FileWriter(logFile.toFile())) {
+            writer.write("2024-07-04 10:30:45 [INFO] 192.168.1.100 -> 192.168.1.200:8080 GET /api/users 200 125ms\n");
+            writer.write("2024-07-04 10:30:46 [INFO] 192.168.1.200 -> 192.168.1.150:3306 POST /data 201 250ms\n");
+        }
+        
+        // When
+        List<Claim> claims = adapter.parseLogFile(logFile.toString());
+        
+        // Then
         assertEquals(2, claims.size());
-        assertEquals(1.0, claims.get(0).getConfidence(), 0.001);
-        assertEquals(0.5, claims.get(1).getConfidence(), 0.001);
+        
+        Claim firstClaim = claims.get(0);
+        assertEquals("web-portal", firstClaim.getFromApplication());
+        assertEquals("user-service", firstClaim.getToApplication());
+        assertEquals(DependencyType.RUNTIME, firstClaim.getDependencyType());
+        assertEquals(ConfidenceScore.VERY_HIGH, firstClaim.getConfidence());
+        assertEquals("router-log", firstClaim.getSource());
+        assertEquals("8080", firstClaim.getMetadata("target_port"));
+        assertEquals(200, firstClaim.getMetadata("http_status"));
+        assertEquals(125, firstClaim.getMetadata("response_time_ms"));
+    }
+    
+    @Test
+    void testParseLogWithErrors() throws IOException {
+        // Given
+        Path logFile = tempDir.resolve("errors.log");
+        try (FileWriter writer = new FileWriter(logFile.toFile())) {
+            writer.write("ServiceA->ServiceB\n");
+            writer.write("InvalidLine\n");
+            writer.write("->NoSource\n");
+            writer.write("NoTarget->\n");
+            writer.write("ServiceC->ServiceD\n");
+        }
+        
+        // When
+        List<Claim> claims = adapter.parseLogFile(logFile.toString());
+        
+        // Then
+        assertEquals(2, claims.size()); // Only valid lines should be parsed
+        assertEquals("ServiceA", claims.get(0).getFromApplication());
+        assertEquals("ServiceC", claims.get(1).getFromApplication());
+    }
+    
+    @Test
+    void testParseEmptyFile() throws IOException {
+        // Given
+        Path logFile = tempDir.resolve("empty.log");
+        try (FileWriter writer = new FileWriter(logFile.toFile())) {
+            // Empty file
+        }
+        
+        // When
+        List<Claim> claims = adapter.parseLogFile(logFile.toString());
+        
+        // Then
+        assertTrue(claims.isEmpty());
+    }
+    
+    @Test
+    void testParseNonExistentFile() {
+        // When & Then
+        assertThrows(IOException.class, () -> {
+            adapter.parseLogFile("/non/existent/file.log");
+        });
+    }
+    
+    @Test
+    void testParseNullFilePath() {
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> {
+            adapter.parseLogFile(null);
+        });
+    }
+    
+    @Test
+    void testParseEmptyFilePath() {
+        // When & Then
+        assertThrows(IllegalArgumentException.class, () -> {
+            adapter.parseLogFile("");
+        });
+    }
+    
+    @Test
+    void testConfidenceCalculation() throws IOException {
+        // Given
+        Path logFile = tempDir.resolve("confidence.log");
+        try (FileWriter writer = new FileWriter(logFile.toFile())) {
+            writer.write("2024-07-04 10:30:45 test 192.168.1.100 test 192.168.1.200:8080 test 200 50ms\n");   // VERY_HIGH
+            writer.write("2024-07-04 10:30:45 test 192.168.1.100 test 192.168.1.200:8080 test 201 500ms\n");  // HIGH  
+            writer.write("2024-07-04 10:30:45 test 192.168.1.100 test 192.168.1.200:8080 test 404 100ms\n");  // MEDIUM
+            writer.write("2024-07-04 10:30:45 test 192.168.1.100 test 192.168.1.200:8080 test 500 100ms\n");  // LOW
+        }
+        
+        // When
+        List<Claim> claims = adapter.parseLogFile(logFile.toString());
+        
+        // Then
+        assertEquals(4, claims.size());
+        assertEquals(ConfidenceScore.VERY_HIGH, claims.get(0).getConfidence());
+        assertEquals(ConfidenceScore.HIGH, claims.get(1).getConfidence());
+        assertEquals(ConfidenceScore.MEDIUM, claims.get(2).getConfidence());
+        assertEquals(ConfidenceScore.LOW, claims.get(3).getConfidence());
     }
 }

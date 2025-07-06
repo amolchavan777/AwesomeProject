@@ -14,18 +14,15 @@
     "preset": "jest-expo"
   },
   "dependencies": {
-    "@expo/metro-config": "^0.20.17",
-    "@expo/samples": "2.1.1",
-    "expo": "^53.0.17",
-    "metro": "^0.82.4",
-    "node-fetch": "^2.7.0",
-    "react": "16.5.0",
-    "react-native": "https://github.com/expo/react-native/archive/sdk-31.0.0.tar.gz",
-    "react-navigation": "^5.0.0"
+    "expo": "~51.0.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-web": "~0.19.6",
+    "@expo/metro-runtime": "~3.2.3"
   },
   "devDependencies": {
-    "babel-preset-expo": "^5.0.0",
-    "jest-expo": "^53.0.9"
+    "@babel/core": "^7.20.0"
   },
   "private": true
 }
